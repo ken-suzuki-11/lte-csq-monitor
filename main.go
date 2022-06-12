@@ -12,6 +12,11 @@ import (
 
 const IsDebug = true
 
+type GPS struct {
+	Latitude  float64
+	Longitude float64
+}
+
 func readGpsLine(s *serial.Port, returnString string) (string, error) {
 	buf := make([]byte, 1024)
 	line := ""
@@ -24,17 +29,16 @@ func readGpsLine(s *serial.Port, returnString string) (string, error) {
 		line += data
 		r := strings.HasSuffix(data, returnString)
 		if r {
-			//return line, nil
 			return strings.TrimRight(line, returnString), nil
 		}
 	}
 	return "", errors.New("reach the read limit")
 }
 
-func getGoogleMapValue(line string) (string, error) {
+func getGoogleMapValue(line string) (GPS, error) {
 	gpsData, err := nmea.Parse(line)
 	if err != nil {
-		return "", err
+		return GPS{0.0, 0.0}, err
 	}
 	if gpsData.DataType() == nmea.TypeRMC {
 		m := gpsData.(nmea.RMC)
@@ -47,10 +51,12 @@ func getGoogleMapValue(line string) (string, error) {
 			fmt.Printf("Date: %s\n", m.Date)
 			fmt.Printf("Variation: %f\n", m.Variation)
 		}
-
-		return fmt.Sprintf("%f,%f", m.Latitude, m.Longitude), nil
+		return GPS{
+			Latitude:  m.Latitude,
+			Longitude: m.Longitude,
+		}, nil
 	}
-	return "", errors.New("not rmc data")
+	return GPS{0.0, 0.0}, errors.New("not rmc data")
 }
 
 func main() {
@@ -76,11 +82,11 @@ func main() {
 			os.Exit(-1)
 		}
 
-		googleMapValue, err := getGoogleMapValue(line)
+		gpsInfo, err := getGoogleMapValue(line)
 		if err != nil {
 			continue
 		}
-		fmt.Printf("GPS Coordinates : %s\n", googleMapValue)
+		fmt.Printf("GPS Coordinates : %f,%f\n", gpsInfo.Latitude, gpsInfo.Longitude)
 
 		fmt.Println()
 	}
