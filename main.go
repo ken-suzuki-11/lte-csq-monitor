@@ -1,11 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"errors"
+	"flag"
 	"fmt"
 	"github.com/adrianmo/go-nmea"
 	"github.com/tarm/serial"
-	"log"
 	"os"
 	"strings"
 )
@@ -59,24 +60,74 @@ func getGoogleMapValue(line string) (GPS, error) {
 	return GPS{0.0, 0.0}, errors.New("not rmc data")
 }
 
-func main() {
-	c := &serial.Config{
-		Name: "/dev/ttyUSB0",
-		Baud: 9600,
-	}
-	s, err := serial.OpenPort(c)
+func getLteCSQ(s *serial.Port) {
+	n, err := s.Write([]byte("AT+CQS"))
 	if err != nil {
-		log.Fatal(err)
+		return
 	}
 
-	_, err = readGpsLine(s, "\n")
+	fmt.Printf(string(n))
+
+	scanner := bufio.NewScanner(s)
+	scanner.Scan()
+	fmt.Println(scanner.Text())
+
+}
+
+func main() {
+	var (
+		gpsDevice string
+		lteDevice string
+	)
+	flag.StringVar(&gpsDevice, "g", "nil", "gps device path")
+	flag.StringVar(&lteDevice, "l", "nil", "lte device path")
+	flag.Parse()
+
+	gpsDevicePath := "/dev/" + gpsDevice
+	_, err := os.Stat(gpsDevicePath)
+	if os.IsNotExist(err) {
+		fmt.Println("Device Not Found : " + gpsDevicePath)
+		os.Exit(-1)
+	}
+
+	lteDevicePath := "/dev/" + lteDevice
+	_, err = os.Stat(lteDevicePath)
+	if os.IsNotExist(err) {
+		fmt.Println("Device Not Found : " + lteDevicePath)
+		os.Exit(-1)
+	}
+
+	gps := &serial.Config{
+		Name: gpsDevicePath,
+		Baud: 9600,
+	}
+	gs, err := serial.OpenPort(gps)
+	if err != nil {
+		fmt.Println("gps serial can't open")
+		os.Exit(-1)
+	}
+
+	lte := &serial.Config{
+		Name: lteDevicePath,
+		Baud: 9600,
+	}
+	ls, err := serial.OpenPort(lte)
+	if err != nil {
+		fmt.Println("lte serial can't open")
+		os.Exit(-1)
+	}
+
+	getLteCSQ(ls)
+	os.Exit(-1)
+
+	_, err = readGpsLine(gs, "\n")
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}
 	for {
 		// GPSデータ読み込み
-		line, err := readGpsLine(s, "\n")
+		line, err := readGpsLine(gs, "\n")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(-1)
@@ -87,6 +138,8 @@ func main() {
 			continue
 		}
 		fmt.Printf("GPS Coordinates : %f,%f\n", gpsInfo.Latitude, gpsInfo.Longitude)
+
+		getLteCSQ(ls)
 
 		fmt.Println()
 	}
