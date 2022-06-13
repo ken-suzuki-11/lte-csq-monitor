@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"flag"
 	"fmt"
@@ -60,19 +59,39 @@ func getGoogleMapValue(line string) (GPS, error) {
 	return GPS{0.0, 0.0}, errors.New("not rmc data")
 }
 
-func getLteCSQ(s *serial.Port) {
-	n, err := s.Write([]byte("AT+CQS"))
-	if err != nil {
-		return
-	}
+func parseCSQ(line string) {
+	splitData, errop
+	o
 
-	fmt.Printf(string(n))
-
-	scanner := bufio.NewScanner(s)
-	scanner.Scan()
-	fmt.Println(scanner.Text())
+	"AT+CSQ\r\r\n+CSQ: 23,99\r\n\r\nOK\r\n"
 
 }
+
+func getLteCSQ(s *serial.Port) {
+        n, err := s.Write([]byte("AT+CSQ\r"))
+        if err != nil {
+                fmt.Println(err)
+                return
+        }
+
+        buf := make([]byte, 1024)
+        line := ""
+
+        for {
+                n, err = s.Read(buf)
+                line += string(buf[:n])
+                fmt.Println(line)
+                fmt.Printf("%#v\n", line)
+                r := strings.HasSuffix(line, "OK\r\n")
+                if r {
+			
+			
+                        fmt.Println(line)
+                        os.Exit(-1)
+                }
+        }
+}
+
 
 func main() {
 	var (
@@ -109,7 +128,7 @@ func main() {
 
 	lte := &serial.Config{
 		Name: lteDevicePath,
-		Baud: 9600,
+		Baud: 115200,
 	}
 	ls, err := serial.OpenPort(lte)
 	if err != nil {
